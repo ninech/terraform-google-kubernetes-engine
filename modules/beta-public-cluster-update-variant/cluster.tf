@@ -507,6 +507,6 @@ module "gcloud_wait_for_cluster" {
 
   module_depends_on = concat(
     [google_container_cluster.primary.master_version],
-    [for pool in google_container_node_pool.pools : pool.name]
+    //[for pool in google_container_node_pool.pools : pool.name]
   )
 }
