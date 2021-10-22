@@ -194,8 +194,9 @@ resource "google_container_node_pool" "pools" {
 
 
   node_config {
-    image_type   = lookup(each.value, "image_type", "COS")
-    machine_type = lookup(each.value, "machine_type", "e2-medium")
+    image_type       = lookup(each.value, "image_type", "COS")
+    machine_type     = lookup(each.value, "machine_type", "e2-medium")
+    min_cpu_platform = lookup(each.value, "min_cpu_platform", "")
     labels = merge(
       lookup(lookup(local.node_pools_labels, "default_values", {}), "cluster_name", true) ? { "cluster_name" = var.name } : {},
       lookup(lookup(local.node_pools_labels, "default_values", {}), "node_pool", true) ? { "node_pool" = each.value["name"] } : {},

@@ -209,7 +209,6 @@ variable "cluster_autoscaling" {
   type = object({
     enabled             = bool
     autoscaling_profile = string
-    min_cpu_platform    = string
     min_cpu_cores       = number
     max_cpu_cores       = number
     min_memory_gb       = number
@@ -218,7 +217,6 @@ variable "cluster_autoscaling" {
   default = {
     enabled             = false
     autoscaling_profile = "BALANCED"
-    min_cpu_platform    = ""
     max_cpu_cores       = 0
     min_cpu_cores       = 0
     max_memory_gb       = 0
