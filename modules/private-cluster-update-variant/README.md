@@ -1,5 +1,22 @@
 # Terraform Kubernetes Engine Module
 
+## Nine changes
+
+We changed the following:
+
+We could not delete a customer nodepool since there is an open issue that is still not fixed:
+https://github.com/terraform-google-modules/terraform-google-kubernetes-engine/issues/767
+
+- modules/beta-public-cluster-update-variant/dns.tf Line 36
+- modules/beta-public-cluster-update-variant/cluster.tf Line 488
+
+We needed to pass the min_cpu_platform to the nodepools, but the upstream module does not support it yet.
+
+https://github.com/terraform-google-modules/terraform-google-kubernetes-engine/issues/985
+https://registry.terraform.io/providers/hashicorp/google/3.57.0/docs/resources/container_cluster#min_cpu_platform
+
+## Repo
+
 This module handles opinionated Google Cloud Platform Kubernetes Engine cluster creation and configuration with Node Pools, IP MASQ, Network Policy, etc. This particular submodule creates a [private cluster](https://cloud.google.com/kubernetes-engine/docs/how-to/private-clusters)
 The resources/services/activations/deletions that this module will create/trigger are:
 - Create a GKE cluster with the provided addons
