@@ -59,7 +59,9 @@ resource "google_container_cluster" "primary" {
   cluster_autoscaling {
     enabled             = var.cluster_autoscaling.enabled
     autoscaling_profile = var.cluster_autoscaling.autoscaling_profile != null ? var.cluster_autoscaling.autoscaling_profile : "BALANCED"
-    min_cpu_platform    = var.min_cpu_platform
+    auto_provisioning_defaults {
+      min_cpu_platform = var.min_cpu_platform
+    }
     dynamic "resource_limits" {
       for_each = local.autoscalling_resource_limits
       content {
@@ -485,7 +487,6 @@ module "gcloud_wait_for_cluster" {
 
   module_depends_on = concat(
     [google_container_cluster.primary.master_version],
-    // see README.md
-    //[for pool in google_container_node_pool.pools : pool.name]
+    [for pool in google_container_node_pool.pools : pool.name]
   )
 }
