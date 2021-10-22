@@ -59,6 +59,7 @@ resource "google_container_cluster" "primary" {
   cluster_autoscaling {
     enabled             = var.cluster_autoscaling.enabled
     autoscaling_profile = var.cluster_autoscaling.autoscaling_profile != null ? var.cluster_autoscaling.autoscaling_profile : "BALANCED"
+    min_cpu_platform    = var.min_cpu_platform
     dynamic "resource_limits" {
       for_each = local.autoscalling_resource_limits
       content {
@@ -110,19 +111,19 @@ resource "google_container_cluster" "primary" {
 
   addons_config {
     http_load_balancing {
-      disabled = ! var.http_load_balancing
+      disabled = !var.http_load_balancing
     }
 
     horizontal_pod_autoscaling {
-      disabled = ! var.horizontal_pod_autoscaling
+      disabled = !var.horizontal_pod_autoscaling
     }
 
     network_policy_config {
-      disabled = ! var.network_policy
+      disabled = !var.network_policy
     }
 
     istio_config {
-      disabled = ! var.istio
+      disabled = !var.istio
       auth     = var.istio_auth
     }
 
