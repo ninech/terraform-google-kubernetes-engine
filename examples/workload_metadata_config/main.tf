@@ -19,8 +19,16 @@ locals {
 }
 
 provider "google-beta" {
-  version = "~> 3.29.0"
+  version = "~> 3.87.0"
   region  = var.region
+}
+
+data "google_client_config" "default" {}
+
+provider "kubernetes" {
+  host                   = "https://${module.gke.endpoint}"
+  token                  = data.google_client_config.default.access_token
+  cluster_ca_certificate = base64decode(module.gke.ca_certificate)
 }
 
 data "google_compute_subnetwork" "subnetwork" {
@@ -30,7 +38,7 @@ data "google_compute_subnetwork" "subnetwork" {
 }
 
 module "gke" {
-  source                  = "../../modules/beta-private-cluster/"
+  source                  = "../../modules/private-cluster/"
   project_id              = var.project_id
   name                    = "${local.cluster_type}-cluster${var.cluster_name_suffix}"
   regional                = false
@@ -42,7 +50,7 @@ module "gke" {
   ip_range_services       = var.ip_range_services
   create_service_account  = true
   grant_registry_access   = true
-  registry_project_id     = var.registry_project_id
+  registry_project_ids    = var.registry_project_ids
   enable_private_endpoint = true
   enable_private_nodes    = true
   master_ipv4_cidr_block  = "172.16.0.0/28"
@@ -54,7 +62,4 @@ module "gke" {
       display_name = "VPC"
     },
   ]
-}
-
-data "google_client_config" "default" {
 }

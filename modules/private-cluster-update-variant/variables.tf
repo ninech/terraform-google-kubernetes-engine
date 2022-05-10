@@ -78,6 +78,12 @@ variable "master_authorized_networks" {
   default     = []
 }
 
+variable "enable_vertical_pod_autoscaling" {
+  type        = bool
+  description = "Vertical Pod Autoscaling automatically adjusts the resources of pods controlled by it"
+  default     = false
+}
+
 variable "horizontal_pod_autoscaling" {
   type        = bool
   description = "Enable horizontal pod autoscaling addon"
@@ -93,7 +99,7 @@ variable "http_load_balancing" {
 variable "network_policy" {
   type        = bool
   description = "Enable network policy addon"
-  default     = true
+  default     = false
 }
 
 variable "network_policy_provider" {
@@ -106,6 +112,12 @@ variable "maintenance_start_time" {
   type        = string
   description = "Time window specified for daily or recurring maintenance operations in RFC3339 format"
   default     = "05:00"
+}
+
+variable "maintenance_exclusions" {
+  type        = list(object({ name = string, start_time = string, end_time = string }))
+  description = "List of maintenance exclusions. A cluster can have up to three"
+  default     = []
 }
 
 
@@ -187,6 +199,38 @@ variable "enable_resource_consumption_export" {
   description = "Whether to enable resource consumption metering on this cluster. When enabled, a table will be created in the resource export BigQuery dataset to store resource consumption data. The resulting table can be joined with the resource usage table or with BigQuery billing export."
   default     = true
 }
+
+variable "cluster_autoscaling" {
+  type = object({
+    enabled       = bool
+    min_cpu_cores = number
+    max_cpu_cores = number
+    min_memory_gb = number
+    max_memory_gb = number
+    gpu_resources = list(object({ resource_type = string, minimum = number, maximum = number }))
+  })
+  default = {
+    enabled       = false
+    max_cpu_cores = 0
+    min_cpu_cores = 0
+    max_memory_gb = 0
+    min_memory_gb = 0
+    gpu_resources = []
+  }
+  description = "Cluster autoscaling configuration. See [more details](https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters#clusterautoscaling)"
+}
+
+variable "node_pools_taints" {
+  type        = map(list(object({ key = string, value = string, effect = string })))
+  description = "Map of lists containing node taints by node-pool name"
+
+  # Default is being set in variables_defaults.tf
+  default = {
+    all               = []
+    default-node-pool = []
+  }
+}
+
 variable "node_pools_tags" {
   type        = map(list(string))
   description = "Map of lists containing node network tags by node-pool name"
@@ -264,14 +308,14 @@ variable "create_service_account" {
 
 variable "grant_registry_access" {
   type        = bool
-  description = "Grants created cluster-specific service account storage.objectViewer role."
+  description = "Grants created cluster-specific service account storage.objectViewer and artifactregistry.reader roles."
   default     = false
 }
 
-variable "registry_project_id" {
-  type        = string
-  description = "Project holding the Google Container Registry. If empty, we use the cluster project. If grant_registry_access is true, storage.objectViewer role is assigned on this project."
-  default     = ""
+variable "registry_project_ids" {
+  type        = list(string)
+  description = "Projects holding Google Container Registries. If empty, we use the cluster project. If a service account is created and the `grant_registry_access` variable is set to `true`, the `storage.objectViewer` and `artifactregsitry.reader` roles are assigned on these projects."
+  default     = []
 }
 
 variable "service_account" {
@@ -344,10 +388,60 @@ variable "master_ipv4_cidr_block" {
   default     = "10.0.0.0/28"
 }
 
+variable "authenticator_security_group" {
+  type        = string
+  description = "The name of the RBAC security group for use with Google security groups in Kubernetes RBAC. Group name must be in format gke-security-groups@yourdomain.com"
+  default     = null
+}
+
+variable "node_metadata" {
+  description = "Specifies how node metadata is exposed to the workload running on the node"
+  default     = "GKE_METADATA_SERVER"
+  type        = string
+}
+
+variable "database_encryption" {
+  description = "Application-layer Secrets Encryption settings. The object format is {state = string, key_name = string}. Valid values of state are: \"ENCRYPTED\"; \"DECRYPTED\". key_name is the name of a CloudKMS key."
+  type        = list(object({ state = string, key_name = string }))
+
+  default = [{
+    state    = "DECRYPTED"
+    key_name = ""
+  }]
+}
+
+variable "identity_namespace" {
+  description = "Workload Identity namespace. (Default value of `enabled` automatically sets project based namespace `[project_id].svc.id.goog`)"
+  type        = string
+  default     = "enabled"
+}
+
+variable "release_channel" {
+  type        = string
+  description = "The release channel of this cluster. Accepted values are `UNSPECIFIED`, `RAPID`, `REGULAR` and `STABLE`. Defaults to `UNSPECIFIED`."
+  default     = null
+}
+
+variable "enable_shielded_nodes" {
+  type        = bool
+  description = "Enable Shielded Nodes features on all nodes in this cluster"
+  default     = true
+}
+
+variable "enable_binary_authorization" {
+  description = "Enable BinAuthZ Admission controller"
+  default     = false
+}
 
 variable "add_cluster_firewall_rules" {
   type        = bool
   description = "Create additional firewall rules"
+  default     = false
+}
+
+variable "add_master_webhook_firewall_rules" {
+  type        = bool
+  description = "Create master_webhook firewall rules for ports defined in `firewall_inbound_ports`"
   default     = false
 }
 
@@ -359,7 +453,7 @@ variable "firewall_priority" {
 
 variable "firewall_inbound_ports" {
   type        = list(string)
-  description = "List of TCP ports for admission/webhook controllers"
+  description = "List of TCP ports for admission/webhook controllers. Either flag `add_master_webhook_firewall_rules` or `add_cluster_firewall_rules` (also adds egress rules) must be set to `true` for inbound-ports firewall rules to be applied."
   default     = ["8443", "9443", "15017"]
 }
 
@@ -369,8 +463,22 @@ variable "gcloud_upgrade" {
   default     = false
 }
 
-variable "gcloud_skip_download" {
+variable "add_shadow_firewall_rules" {
   type        = bool
-  description = "Whether to skip downloading gcloud (assumes gcloud is already available outside the module)"
-  default     = true
+  description = "Create GKE shadow firewall (the same as default firewall rules with firewall logs enabled)."
+  default     = false
 }
+
+variable "shadow_firewall_rules_priority" {
+  type        = number
+  description = "The firewall priority of GKE shadow firewall rules. The priority should be less than default firewall, which is 1000."
+  default     = 999
+}
+
+
+variable "impersonate_service_account" {
+  type        = string
+  description = "An optional service account to impersonate for gcloud commands. If this service account is not specified, the module will use Application Default Credentials."
+  default     = ""
+}
+

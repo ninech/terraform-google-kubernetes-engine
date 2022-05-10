@@ -19,8 +19,16 @@ locals {
 }
 
 provider "google" {
-  version = "~> 3.16.0"
+  version = "~> 3.42.0"
   region  = var.region
+}
+
+data "google_client_config" "default" {}
+
+provider "kubernetes" {
+  host                   = "https://${module.gke.endpoint}"
+  token                  = data.google_client_config.default.access_token
+  cluster_ca_certificate = base64decode(module.gke.ca_certificate)
 }
 
 module "gke" {
@@ -49,7 +57,4 @@ module "gke" {
   }
 
   upstream_nameservers = ["8.8.8.8", "8.8.4.4"]
-}
-
-data "google_client_config" "default" {
 }

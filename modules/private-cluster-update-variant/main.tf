@@ -32,6 +32,9 @@ resource "random_shuffle" "available_zones" {
 }
 
 locals {
+  // ID of the cluster
+  cluster_id = google_container_cluster.primary.id
+
   // location
   location = var.regional ? var.region : var.zones[0]
   region   = var.regional ? var.region : join("-", slice(split("-", var.zones[0]), 0, 2))
@@ -46,6 +49,17 @@ locals {
   node_pool_names = [for np in toset(var.node_pools) : np.name]
   node_pools      = zipmap(local.node_pool_names, tolist(toset(var.node_pools)))
 
+  release_channel = var.release_channel != null ? [{ channel : var.release_channel }] : []
+
+  autoscaling_resource_limits = var.cluster_autoscaling.enabled ? concat([{
+    resource_type = "cpu"
+    minimum       = var.cluster_autoscaling.min_cpu_cores
+    maximum       = var.cluster_autoscaling.max_cpu_cores
+    }, {
+    resource_type = "memory"
+    minimum       = var.cluster_autoscaling.min_memory_gb
+    maximum       = var.cluster_autoscaling.max_memory_gb
+  }], var.cluster_autoscaling.gpu_resources) : []
 
 
   custom_kube_dns_config      = length(keys(var.stub_domains)) > 0
@@ -67,6 +81,14 @@ locals {
     provider = null
   }]
 
+
+  cluster_authenticator_security_group = var.authenticator_security_group == null ? [] : [{
+    security_group = var.authenticator_security_group
+  }]
+
+  cluster_node_metadata_config = var.node_metadata == "UNSPECIFIED" ? [] : [{
+    node_metadata = var.node_metadata
+  }]
 
   cluster_output_name           = google_container_cluster.primary.name
   cluster_output_regional_zones = google_container_cluster.primary.node_locations
@@ -111,9 +133,13 @@ locals {
   cluster_monitoring_service                 = local.cluster_output_monitoring_service
   cluster_node_pools_names                   = local.cluster_output_node_pools_names
   cluster_node_pools_versions                = local.cluster_output_node_pools_versions
-  cluster_network_policy_enabled             = ! local.cluster_output_network_policy_enabled
-  cluster_http_load_balancing_enabled        = ! local.cluster_output_http_load_balancing_enabled
-  cluster_horizontal_pod_autoscaling_enabled = ! local.cluster_output_horizontal_pod_autoscaling_enabled
+  cluster_network_policy_enabled             = !local.cluster_output_network_policy_enabled
+  cluster_http_load_balancing_enabled        = !local.cluster_output_http_load_balancing_enabled
+  cluster_horizontal_pod_autoscaling_enabled = !local.cluster_output_horizontal_pod_autoscaling_enabled
+  workload_identity_enabled                  = !(var.identity_namespace == null || var.identity_namespace == "null")
+  cluster_workload_identity_config = !local.workload_identity_enabled ? [] : var.identity_namespace == "enabled" ? [{
+    identity_namespace = "${var.project_id}.svc.id.goog" }] : [{ identity_namespace = var.identity_namespace
+  }]
 
 }
 

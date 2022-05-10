@@ -14,10 +14,21 @@
  * limitations under the License.
  */
 
+
 terraform {
-  required_version = ">=0.12.6, <0.14"
+  required_version = ">=0.13"
 
   required_providers {
-    google = ">= 3.16, <4.0.0"
+    google = {
+      source  = "hashicorp/google"
+      version = ">= 3.39.0, <4.0.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.0"
+    }
+  }
+  provider_meta "google" {
+    module_name = "blueprints/terraform/terraform-google-kubernetes-engine:private-cluster/v18.0.0"
   }
 }
