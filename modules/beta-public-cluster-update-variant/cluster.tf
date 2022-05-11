@@ -341,7 +341,6 @@ locals {
     "accelerator_type",
     "local_ssd_count",
     "machine_type",
-    "min_cpu_platform",
     "preemptible",
     "service_account",
   ]
@@ -367,18 +366,6 @@ resource "random_id" "name" {
             values(local.node_pools_labels["all"]),
             keys(local.node_pools_labels[each.value["name"]]),
             values(local.node_pools_labels[each.value["name"]])
-          )
-        )
-      )
-    },
-    {
-      taints = join(",",
-        sort(
-          flatten(
-            concat(
-              [for all_taints in local.node_pools_taints["all"] : "all/${all_taints.key}/${all_taints.value}/${all_taints.effect}"],
-              [for each_pool_taint in local.node_pools_taints[each.value["name"]] : "${each.value["name"]}/${each_pool_taint.key}/${each_pool_taint.value}/${each_pool_taint.effect}"],
-            )
           )
         )
       )
