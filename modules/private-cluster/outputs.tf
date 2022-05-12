@@ -16,6 +16,11 @@
 
 // This file was automatically generated from a template in ./autogen/main
 
+output "cluster_id" {
+  description = "Cluster ID"
+  value       = local.cluster_id
+}
+
 output "name" {
   description = "Cluster name"
   value       = local.cluster_name
@@ -54,7 +59,6 @@ output "endpoint" {
     */
     google_container_cluster.primary,
     google_container_node_pool.pools,
-    module.gcloud_wait_for_cluster.wait,
   ]
 }
 
@@ -117,6 +121,24 @@ output "node_pools_versions" {
 output "service_account" {
   description = "The service account to default running nodes as if not overridden in `node_pools`."
   value       = local.service_account
+}
+
+output "release_channel" {
+  description = "The release channel of this cluster"
+  value       = var.release_channel
+}
+
+output "identity_namespace" {
+  description = "Workload Identity namespace"
+  value       = length(local.cluster_workload_identity_config) > 0 ? local.cluster_workload_identity_config[0].identity_namespace : null
+  depends_on = [
+    google_container_cluster.primary
+  ]
+}
+
+output "instance_group_urls" {
+  description = "List of GKE generated instance groups"
+  value       = google_container_cluster.primary.instance_group_urls
 }
 
 output "master_ipv4_cidr_block" {

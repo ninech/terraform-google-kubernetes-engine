@@ -41,17 +41,49 @@ resource "google_container_cluster" "primary" {
     }
   }
 
+  dynamic "release_channel" {
+    for_each = local.release_channel
 
-  subnetwork = "projects/${local.network_project_id}/regions/${var.region}/subnetworks/${var.subnetwork}"
+    content {
+      channel = release_channel.value.channel
+    }
+  }
 
-  min_master_version = local.master_version
+  subnetwork = "projects/${local.network_project_id}/regions/${local.region}/subnetworks/${var.subnetwork}"
+
+  min_master_version = var.release_channel != null ? null : local.master_version
 
   logging_service    = var.logging_service
   monitoring_service = var.monitoring_service
 
+  cluster_autoscaling {
+    enabled = var.cluster_autoscaling.enabled
+    dynamic "auto_provisioning_defaults" {
+      for_each = var.cluster_autoscaling.enabled ? [1] : []
+
+      content {
+        service_account = local.service_account
+        oauth_scopes    = local.node_pools_oauth_scopes["all"]
+      }
+    }
+    dynamic "resource_limits" {
+      for_each = local.autoscaling_resource_limits
+      content {
+        resource_type = lookup(resource_limits.value, "resource_type")
+        minimum       = lookup(resource_limits.value, "minimum")
+        maximum       = lookup(resource_limits.value, "maximum")
+      }
+    }
+  }
+
+  vertical_pod_autoscaling {
+    enabled = var.enable_vertical_pod_autoscaling
+  }
 
   default_max_pods_per_node = var.default_max_pods_per_node
 
+  enable_shielded_nodes       = var.enable_shielded_nodes
+  enable_binary_authorization = var.enable_binary_authorization
   dynamic "master_authorized_networks_config" {
     for_each = local.master_authorized_networks_config
     content {
@@ -76,15 +108,15 @@ resource "google_container_cluster" "primary" {
 
   addons_config {
     http_load_balancing {
-      disabled = ! var.http_load_balancing
+      disabled = !var.http_load_balancing
     }
 
     horizontal_pod_autoscaling {
-      disabled = ! var.horizontal_pod_autoscaling
+      disabled = !var.horizontal_pod_autoscaling
     }
 
     network_policy_config {
-      disabled = ! var.network_policy
+      disabled = !var.network_policy
     }
   }
 
@@ -100,7 +132,7 @@ resource "google_container_cluster" "primary" {
   }
 
   lifecycle {
-    ignore_changes = [node_pool, initial_node_count]
+    ignore_changes = [node_pool, initial_node_count, resource_labels["asmv"], resource_labels["mesh_id"]]
   }
 
   timeouts {
@@ -114,7 +146,27 @@ resource "google_container_cluster" "primary" {
     initial_node_count = var.initial_node_count
 
     node_config {
+      image_type       = lookup(var.node_pools[0], "image_type", "COS")
+      machine_type     = lookup(var.node_pools[0], "machine_type", "e2-medium")
+      min_cpu_platform = lookup(var.node_pools[0], "min_cpu_platform", "")
+
       service_account = lookup(var.node_pools[0], "service_account", local.service_account)
+
+      dynamic "workload_metadata_config" {
+        for_each = local.cluster_node_metadata_config
+
+        content {
+          node_metadata = workload_metadata_config.value.node_metadata
+        }
+      }
+
+      metadata = local.node_pools_metadata["all"]
+
+
+      shielded_instance_config {
+        enable_secure_boot          = lookup(var.node_pools[0], "enable_secure_boot", false)
+        enable_integrity_monitoring = lookup(var.node_pools[0], "enable_integrity_monitoring", true)
+      }
     }
   }
 
@@ -136,6 +188,31 @@ resource "google_container_cluster" "primary" {
 
 
   remove_default_node_pool = var.remove_default_node_pool
+
+  dynamic "database_encryption" {
+    for_each = var.database_encryption
+
+    content {
+      key_name = database_encryption.value.key_name
+      state    = database_encryption.value.state
+    }
+  }
+
+  dynamic "workload_identity_config" {
+    for_each = local.cluster_workload_identity_config
+
+    content {
+      identity_namespace = workload_identity_config.value.identity_namespace
+    }
+  }
+
+  dynamic "authenticator_groups_config" {
+    for_each = local.cluster_authenticator_security_group
+    content {
+      security_group = authenticator_groups_config.value.security_group
+    }
+  }
+
 }
 
 /******************************************
@@ -147,6 +224,8 @@ resource "google_container_node_pool" "pools" {
   name     = each.key
   project  = var.project_id
   location = local.location
+  // use node_locations if provided, defaults to cluster level node_locations if not specified
+  node_locations = lookup(each.value, "node_locations", "") != "" ? split(",", each.value["node_locations"]) : null
 
   cluster = google_container_cluster.primary.name
 
@@ -174,6 +253,7 @@ resource "google_container_node_pool" "pools" {
     }
   }
 
+
   management {
     auto_repair  = lookup(each.value, "auto_repair", true)
     auto_upgrade = lookup(each.value, "auto_upgrade", local.default_auto_upgrade)
@@ -181,8 +261,9 @@ resource "google_container_node_pool" "pools" {
 
 
   node_config {
-    image_type   = lookup(each.value, "image_type", "COS")
-    machine_type = lookup(each.value, "machine_type", "e2-medium")
+    image_type       = lookup(each.value, "image_type", "COS")
+    machine_type     = lookup(each.value, "machine_type", "e2-medium")
+    min_cpu_platform = lookup(var.node_pools[0], "min_cpu_platform", "")
     labels = merge(
       lookup(lookup(local.node_pools_labels, "default_values", {}), "cluster_name", true) ? { "cluster_name" = var.name } : {},
       lookup(lookup(local.node_pools_labels, "default_values", {}), "node_pool", true) ? { "node_pool" = each.value["name"] } : {},
@@ -198,6 +279,17 @@ resource "google_container_node_pool" "pools" {
         "disable-legacy-endpoints" = var.disable_legacy_metadata_endpoints
       },
     )
+    dynamic "taint" {
+      for_each = concat(
+        local.node_pools_taints["all"],
+        local.node_pools_taints[each.value["name"]],
+      )
+      content {
+        effect = taint.value.effect
+        key    = taint.value.key
+        value  = taint.value.value
+      }
+    }
     tags = concat(
       lookup(local.node_pools_tags, "default_values", [true, true])[0] ? [local.cluster_network_tag] : [],
       lookup(local.node_pools_tags, "default_values", [true, true])[1] ? ["${local.cluster_network_tag}-${each.value["name"]}"] : [],
@@ -208,6 +300,7 @@ resource "google_container_node_pool" "pools" {
     local_ssd_count = lookup(each.value, "local_ssd_count", 0)
     disk_size_gb    = lookup(each.value, "disk_size_gb", 100)
     disk_type       = lookup(each.value, "disk_type", "pd-standard")
+
 
     service_account = lookup(
       each.value,
@@ -223,13 +316,23 @@ resource "google_container_node_pool" "pools" {
 
     guest_accelerator = [
       for guest_accelerator in lookup(each.value, "accelerator_count", 0) > 0 ? [{
-        type  = lookup(each.value, "accelerator_type", "")
-        count = lookup(each.value, "accelerator_count", 0)
+        type               = lookup(each.value, "accelerator_type", "")
+        count              = lookup(each.value, "accelerator_count", 0)
+        gpu_partition_size = lookup(each.value, "gpu_partition_size", null)
         }] : [] : {
-        type  = guest_accelerator["type"]
-        count = guest_accelerator["count"]
+        type               = guest_accelerator["type"]
+        count              = guest_accelerator["count"]
+        gpu_partition_size = guest_accelerator["gpu_partition_size"]
       }
     ]
+
+    dynamic "workload_metadata_config" {
+      for_each = local.cluster_node_metadata_config
+
+      content {
+        node_metadata = lookup(each.value, "node_metadata", workload_metadata_config.value.node_metadata)
+      }
+    }
 
     shielded_instance_config {
       enable_secure_boot          = lookup(each.value, "enable_secure_boot", false)
@@ -247,23 +350,4 @@ resource "google_container_node_pool" "pools" {
     update = "45m"
     delete = "45m"
   }
-}
-
-module "gcloud_wait_for_cluster" {
-  source  = "terraform-google-modules/gcloud/google"
-  version = "~> 1.3.0"
-  enabled = var.skip_provisioners
-
-  upgrade       = var.gcloud_upgrade
-  skip_download = var.gcloud_skip_download
-
-  create_cmd_entrypoint  = "${path.module}/scripts/wait-for-cluster.sh"
-  create_cmd_body        = "${var.project_id} ${var.name}"
-  destroy_cmd_entrypoint = "${path.module}/scripts/wait-for-cluster.sh"
-  destroy_cmd_body       = "${var.project_id} ${var.name}"
-
-  module_depends_on = concat(
-    [google_container_cluster.primary.master_version],
-    [for pool in google_container_node_pool.pools : pool.name]
-  )
 }

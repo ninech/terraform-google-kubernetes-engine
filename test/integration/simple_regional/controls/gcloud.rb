@@ -50,8 +50,28 @@ control "gcloud" do
           "kubernetesDashboard" => {
             "disabled" => true,
           },
-          "networkPolicyConfig" => {},
+          "networkPolicyConfig" => {
+            "disabled" => true,
+          },
         )
+      end
+
+      it "has the expected databaseEncryption config" do
+        expect(data['databaseEncryption']).to eq({
+          "state" => 'DECRYPTED',
+        })
+      end
+
+      it "has the expected shieldedNodes config" do
+        expect(data['shieldedNodes']).to eq({
+          "enabled" => true,
+        })
+      end
+
+      it "has the expected binaryAuthorization config" do
+        expect(data['binaryAuthorization']).to eq({
+          "enabled" => true,
+        })
       end
     end
 

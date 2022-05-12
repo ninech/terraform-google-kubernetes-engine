@@ -19,8 +19,16 @@ locals {
 }
 
 provider "google" {
-  version = "~> 3.16.0"
+  version = "~> 3.42.0"
   region  = var.region
+}
+
+data "google_client_config" "default" {}
+
+provider "kubernetes" {
+  host                   = "https://${module.gke.endpoint}"
+  token                  = data.google_client_config.default.access_token
+  cluster_ca_certificate = base64decode(module.gke.ca_certificate)
 }
 
 module "gke" {
@@ -35,7 +43,14 @@ module "gke" {
   ip_range_pods     = var.ip_range_pods
   ip_range_services = var.ip_range_services
   service_account   = "create"
-}
-
-data "google_client_config" "default" {
+  node_pools = [
+    {
+      name         = "acm-node-pool"
+      autoscaling  = false
+      auto_upgrade = true
+      # Trying larger node pool for ACM to prevent against test flakiness
+      node_count   = 4
+      machine_type = "e2-standard-4"
+    },
+  ]
 }

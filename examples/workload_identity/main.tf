@@ -19,20 +19,20 @@ locals {
 }
 
 provider "google" {
-  version = "~> 3.16.0"
+  version = "~> 3.42.0"
   region  = var.region
 }
 
+data "google_client_config" "default" {}
+
 provider "kubernetes" {
-  version                = "~> 1.10, != 1.11.0"
-  host                   = module.gke.endpoint
+  host                   = "https://${module.gke.endpoint}"
   token                  = data.google_client_config.default.access_token
   cluster_ca_certificate = base64decode(module.gke.ca_certificate)
-  load_config_file       = false
 }
 
 module "gke" {
-  source                   = "../../modules/beta-public-cluster/"
+  source                   = "../../"
   project_id               = var.project_id
   name                     = "${local.cluster_type}-cluster${var.cluster_name_suffix}"
   region                   = var.region
@@ -62,7 +62,6 @@ module "workload_identity" {
   use_existing_k8s_sa = false
 }
 
-
 # example with existing KSA
 resource "kubernetes_service_account" "test" {
   metadata {
@@ -84,5 +83,18 @@ module "workload_identity_existing_ksa" {
   k8s_sa_name         = kubernetes_service_account.test.metadata.0.name
 }
 
-data "google_client_config" "default" {
+# example with existing GSA
+resource "google_service_account" "custom" {
+  account_id = "custom-gsa"
+  project    = var.project_id
+}
+
+module "workload_identity_existing_gsa" {
+  source              = "../../modules/workload-identity"
+  project_id          = var.project_id
+  name                = google_service_account.custom.account_id
+  use_existing_gcp_sa = true
+  # wait till custom GSA is created to force module data source read during apply
+  # https://github.com/terraform-google-modules/terraform-google-kubernetes-engine/issues/1059
+  depends_on = [google_service_account.custom]
 }

@@ -35,6 +35,12 @@ variable "operator_path" {
   default     = null
 }
 
+variable "enable_multi_repo" {
+  description = "Whether to use ACM Config Sync [multi-repo mode](https://cloud.google.com/kubernetes-engine/docs/add-on/config-sync/how-to/multi-repo)."
+  type        = bool
+  default     = false
+}
+
 variable "sync_repo" {
   description = "ACM Git repo address"
   type        = string
@@ -42,6 +48,12 @@ variable "sync_repo" {
 
 variable "sync_branch" {
   description = "ACM repo Git branch. If un-set, uses Config Management default."
+  type        = string
+  default     = ""
+}
+
+variable "sync_revision" {
+  description = "ACM repo Git revision. If un-set, uses Config Management default."
   type        = string
   default     = ""
 }
@@ -87,8 +99,31 @@ variable "install_template_library" {
   default     = true
 }
 
-variable "skip_gcloud_download" {
-  description = "Whether to skip downloading gcloud (assumes gcloud and kubectl already available outside the module)"
+variable "source_format" {
+  description = "Configures a non-hierarchical repo if set to 'unstructured'. Uses [ACM defaults](https://cloud.google.com/anthos-config-management/docs/how-to/installing#configuring-config-management-operator) when unset."
+  type        = string
+  default     = ""
+}
+
+variable "hierarchy_controller" {
+  description = "Configurations for Hierarchy Controller. See [Hierarchy Controller docs](https://cloud.google.com/anthos-config-management/docs/how-to/installing-hierarchy-controller) for more details"
+  type        = map(any)
+  default     = null
+}
+
+variable "enable_log_denies" {
+  description = "Whether to enable logging of all denies and dryrun failures for ACM Policy Controller."
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "service_account_key_file" {
+  description = "Path to service account key file to auth as for running `gcloud container clusters get-credentials`."
+  default     = ""
+}
+
+variable "use_existing_context" {
+  description = "Use existing kubecontext to auth kube-api."
+  type        = bool
+  default     = false
 }

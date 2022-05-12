@@ -19,13 +19,21 @@ locals {
 }
 
 provider "google" {
-  version = "~> 3.16.0"
+  version = "~> 3.42.0"
   region  = var.region
 }
 
 provider "google-beta" {
-  version = "~> 3.29.0"
+  version = "~> 3.87.0"
   region  = var.region
+}
+
+data "google_client_config" "default" {}
+
+provider "kubernetes" {
+  host                   = "https://${module.gke.endpoint}"
+  token                  = data.google_client_config.default.access_token
+  cluster_ca_certificate = base64decode(module.gke.ca_certificate)
 }
 
 data "google_compute_subnetwork" "subnetwork" {
@@ -56,11 +64,10 @@ module "gke" {
     },
   ]
 
+  enable_confidential_nodes = true
+
   istio             = var.istio
   cloudrun          = var.cloudrun
   dns_cache         = var.dns_cache
   gce_pd_csi_driver = var.gce_pd_csi_driver
-}
-
-data "google_client_config" "default" {
 }
