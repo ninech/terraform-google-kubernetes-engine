@@ -375,17 +375,10 @@ locals {
     "disk_type",
     "accelerator_count",
     "accelerator_type",
-    "enable_secure_boot",
-    "enable_integrity_monitoring",
     "local_ssd_count",
     "machine_type",
-    "min_cpu_platform",
     "preemptible",
-    "spot",
     "service_account",
-    "enable_gcfs",
-    "enable_gvnic",
-    "enable_secure_boot",
   ]
 }
 
@@ -409,18 +402,6 @@ resource "random_id" "name" {
             values(local.node_pools_labels["all"]),
             keys(local.node_pools_labels[each.value["name"]]),
             values(local.node_pools_labels[each.value["name"]])
-          )
-        )
-      )
-    },
-    {
-      taints = join(",",
-        sort(
-          flatten(
-            concat(
-              [for all_taints in local.node_pools_taints["all"] : "all/${all_taints.key}/${all_taints.value}/${all_taints.effect}"],
-              [for each_pool_taint in local.node_pools_taints[each.value["name"]] : "${each.value["name"]}/${each_pool_taint.key}/${each_pool_taint.value}/${each_pool_taint.effect}"],
-            )
           )
         )
       )
