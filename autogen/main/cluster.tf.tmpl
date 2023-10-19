@@ -693,6 +693,8 @@ resource "google_container_node_pool" "pools" {
         type  = guest_accelerator["type"]
         count = guest_accelerator["count"]
 	gpu_partition_size = guest_accelerator["gpu_partition_size"]
+	# we do not support GPU sharing yet
+	gpu_partition_config = []
       }
     ]
 
