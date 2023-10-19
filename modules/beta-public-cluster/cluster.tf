@@ -498,8 +498,8 @@ resource "google_container_node_pool" "pools" {
       for guest_accelerator in lookup(each.value, "accelerator_count", 0) > 0 ? [{
         type               = lookup(each.value, "accelerator_type", "")
         count              = lookup(each.value, "accelerator_count", 0)
-        gpu_partition_size = lookup(each.value, "gpu_partition_size", null)
-        gpu_sharing_config = lookup(each.value, "gpu_sharing_config", null)
+        gpu_partition_size = lookup(each.value, "gpu_partition_size", "")
+        gpu_sharing_config = lookup(each.value, "gpu_sharing_config", [])
         }] : [] : {
         type               = guest_accelerator["type"]
         count              = guest_accelerator["count"]
