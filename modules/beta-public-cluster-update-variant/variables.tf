@@ -518,7 +518,7 @@ variable "timeouts" {
   description = "Timeout for cluster operations."
   default     = {}
   validation {
-    condition     = !contains([for t in keys(var.timeouts) : contains(["create", "update", "delete"], t)], false)
+    condition     = ! contains([for t in keys(var.timeouts) : contains(["create", "update", "delete"], t)], false)
     error_message = "Only create, update, delete timeouts can be specified."
   }
 }
@@ -615,4 +615,9 @@ variable "gce_pd_csi_driver" {
   type        = bool
   description = "(Beta) Whether this cluster should enable the Google Compute Engine Persistent Disk Container Storage Interface (CSI) Driver."
   default     = false
+}
+
+variable "enable_k8s_beta_apis" {
+  default = []
+  type    = list(object({ enabled_apis = list(string) }))
 }

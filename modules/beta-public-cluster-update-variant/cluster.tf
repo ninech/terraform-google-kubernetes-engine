@@ -159,15 +159,15 @@ resource "google_container_cluster" "primary" {
 
   addons_config {
     http_load_balancing {
-      disabled = !var.http_load_balancing
+      disabled = ! var.http_load_balancing
     }
 
     horizontal_pod_autoscaling {
-      disabled = !var.horizontal_pod_autoscaling
+      disabled = ! var.horizontal_pod_autoscaling
     }
 
     network_policy_config {
-      disabled = !var.network_policy
+      disabled = ! var.network_policy
     }
 
     gcp_filestore_csi_driver_config {
@@ -175,7 +175,7 @@ resource "google_container_cluster" "primary" {
     }
 
     istio_config {
-      disabled = !var.istio
+      disabled = ! var.istio
       auth     = var.istio_auth
     }
 
@@ -363,6 +363,14 @@ resource "google_container_cluster" "primary" {
     pubsub {
       enabled = var.notification_config_topic != "" ? true : false
       topic   = var.notification_config_topic
+    }
+  }
+
+  dynamic "enable_k8s_beta_apis" {
+    for_each = var.enable_k8s_beta_apis
+
+    content {
+      enabled_apis = enable_k8s_beta_apis.value.enabled_apis
     }
   }
 }
