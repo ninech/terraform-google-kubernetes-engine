@@ -496,12 +496,6 @@ variable "enable_shielded_nodes" {
   default     = true
 }
 
-variable "enable_binary_authorization" {
-  type        = bool
-  description = "Enable BinAuthZ Admission controller"
-  default     = false
-}
-
 variable "node_metadata" {
   description = "Specifies how node metadata is exposed to the workload running on the node"
   default     = "GKE_METADATA"

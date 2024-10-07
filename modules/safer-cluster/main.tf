@@ -143,9 +143,6 @@ module "gke" {
 
   database_encryption = var.database_encryption
 
-  // We suggest to define policies about  which images can run on a cluster.
-  enable_binary_authorization = true
-
   // Use of PodSecurityPolicy admission controller
   // https://cloud.google.com/kubernetes-engine/docs/how-to/pod-security-policies
   enable_pod_security_policy = var.enable_pod_security_policy
