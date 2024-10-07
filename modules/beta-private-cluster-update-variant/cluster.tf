@@ -118,7 +118,6 @@ resource "google_container_cluster" "primary" {
   }
   default_max_pods_per_node   = var.default_max_pods_per_node
   enable_shielded_nodes       = var.enable_shielded_nodes
-  enable_binary_authorization = var.enable_binary_authorization
   enable_intranode_visibility = var.enable_intranode_visibility
   enable_kubernetes_alpha     = var.enable_kubernetes_alpha
   enable_tpu                  = var.enable_tpu
@@ -159,15 +158,15 @@ resource "google_container_cluster" "primary" {
 
   addons_config {
     http_load_balancing {
-      disabled = !var.http_load_balancing
+      disabled = ! var.http_load_balancing
     }
 
     horizontal_pod_autoscaling {
-      disabled = !var.horizontal_pod_autoscaling
+      disabled = ! var.horizontal_pod_autoscaling
     }
 
     network_policy_config {
-      disabled = !var.network_policy
+      disabled = ! var.network_policy
     }
 
     gcp_filestore_csi_driver_config {
@@ -175,7 +174,7 @@ resource "google_container_cluster" "primary" {
     }
 
     istio_config {
-      disabled = !var.istio
+      disabled = ! var.istio
       auth     = var.istio_auth
     }
 

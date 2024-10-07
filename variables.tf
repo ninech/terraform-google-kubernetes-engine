@@ -449,12 +449,6 @@ variable "enable_shielded_nodes" {
   default     = true
 }
 
-variable "enable_binary_authorization" {
-  type        = bool
-  description = "Enable BinAuthZ Admission controller"
-  default     = false
-}
-
 variable "node_metadata" {
   description = "Specifies how node metadata is exposed to the workload running on the node"
   default     = "GKE_METADATA"
@@ -471,7 +465,7 @@ variable "timeouts" {
   description = "Timeout for cluster operations."
   default     = {}
   validation {
-    condition     = !contains([for t in keys(var.timeouts) : contains(["create", "update", "delete"], t)], false)
+    condition     = ! contains([for t in keys(var.timeouts) : contains(["create", "update", "delete"], t)], false)
     error_message = "Only create, update, delete timeouts can be specified."
   }
 }
