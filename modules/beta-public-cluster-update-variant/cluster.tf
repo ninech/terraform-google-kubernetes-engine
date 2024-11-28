@@ -27,10 +27,10 @@ resource "google_container_cluster" "primary" {
   project         = var.project_id
   resource_labels = var.cluster_resource_labels
 
-  location          = local.location
-  node_locations    = local.node_locations
-  cluster_ipv4_cidr = var.cluster_ipv4_cidr
-  network           = "projects/${local.network_project_id}/global/networks/${var.network}"
+  location            = local.location
+  node_locations      = local.node_locations
+  cluster_ipv4_cidr   = var.cluster_ipv4_cidr
+  network             = "projects/${local.network_project_id}/global/networks/${var.network}"
   deletion_protection = var.deletion_protection
   dynamic "network_policy" {
     for_each = local.cluster_network_policy
@@ -575,19 +575,29 @@ resource "google_container_node_pool" "pools" {
       local.node_pools_oauth_scopes[each.value["name"]],
     )
 
-    guest_accelerator = [
-      for guest_accelerator in lookup(each.value, "accelerator_count", 0) > 0 ? [{
+    dynamic "guest_accelerator" {
+      for_each = lookup(each.value, "accelerator_count", 0) > 0 ? [1] : []
+      content {
         type               = lookup(each.value, "accelerator_type", "")
         count              = lookup(each.value, "accelerator_count", 0)
         gpu_partition_size = lookup(each.value, "gpu_partition_size", null)
-        }] : [] : {
-        type               = guest_accelerator["type"]
-        count              = guest_accelerator["count"]
-        gpu_partition_size = guest_accelerator["gpu_partition_size"]
-        # we do not support GPU sharing yet
-        gpu_sharing_config = []
+
+        dynamic "gpu_driver_installation_config" {
+          for_each = lookup(each.value, "gpu_driver_version", "") != "" ? [1] : []
+          content {
+            gpu_driver_version = lookup(each.value, "gpu_driver_version", "")
+          }
+        }
+
+        dynamic "gpu_sharing_config" {
+          for_each = lookup(each.value, "gpu_sharing_strategy", "") != "" ? [1] : []
+          content {
+            gpu_sharing_strategy       = lookup(each.value, "gpu_sharing_strategy", "")
+            max_shared_clients_per_gpu = lookup(each.value, "max_shared_clients_per_gpu", 2)
+          }
+        }
       }
-    ]
+    }
 
     dynamic "workload_metadata_config" {
       for_each = local.cluster_node_metadata_config
